@@ -116,7 +116,7 @@ class RobotContainer {
             drive,
             DoubleSupplier { -controller.getLeftY() * 0.8 },
             DoubleSupplier { -controller.getLeftX() * 0.8 },
-            DoubleSupplier { -controller.getRightX() * 0.8 })
+            DoubleSupplier { controller.getRightX() * 0.8 })
 
         controller.rightTrigger().whileTrue(limelightController.alignRobotAllAxis(LimeLightChoice.Right, 0.215, 0.035))
         controller.leftTrigger().whileTrue(limelightController.alignRobotAllAxis(LimeLightChoice.Left, 0.215, -0.035))

@@ -160,7 +160,7 @@ class PathPlannerAutonomous(val drive: Drive, private val limelightController: L
                 armSystem.disableIntake(),
                 armSystem.setPoseAutoCommand(ArmPoses.L2.pose, ArmOrders.JEW.order)))
 
-        tab.add("Autonomous Chooser", autoChooser)
+        tab.add("Autonomous Chooser", autoChooser.sendableChooser)
         SmartDashboard.putData("Autonomous Chooser", autoChooser.sendableChooser)
     }
 
@@ -185,7 +185,7 @@ class PathPlannerAutonomous(val drive: Drive, private val limelightController: L
     }
 
     val selectedAutonomousRoutine: Command
-        get() = autoChooser.get()
+        get() = if (autoChooser.get() != null) autoChooser.get() else Commands.none()
 
     fun getPath(name: String): PathPlannerPath = try {
         PathPlannerPath.fromPathFile(name)

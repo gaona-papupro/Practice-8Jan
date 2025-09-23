@@ -116,7 +116,7 @@ public class LimelightController {
 
         angleDictionaryValues();
         limelightConfiguration();
-        //limelightsStream();
+        limelightsStream();
     }
 
     private static double clamp(double max, double min, double v) {
