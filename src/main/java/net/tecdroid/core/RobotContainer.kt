@@ -1,9 +1,12 @@
 package net.tecdroid.core
 
+import edu.wpi.first.math.VecBuilder
+import edu.wpi.first.math.Vector
 import edu.wpi.first.math.geometry.Pose2d
 import edu.wpi.first.math.geometry.Rotation2d
 import edu.wpi.first.networktables.NetworkTableInstance
 import edu.wpi.first.networktables.StructPublisher
+import edu.wpi.first.units.measure.Time
 import edu.wpi.first.wpilibj2.command.Command
 import edu.wpi.first.wpilibj2.command.Commands
 import net.tecdroid.commands.DriveCommands
@@ -21,6 +24,7 @@ import net.tecdroid.input.CompliantXboxController
 import net.tecdroid.systems.ArmSystem.ArmSystem
 import net.tecdroid.systems.ArmSystem.ReefAppListener
 import net.tecdroid.systems.SwerveRotationLockSystem
+import net.tecdroid.util.seconds
 import net.tecdroid.util.stateMachine.StateMachine
 import net.tecdroid.util.stateMachine.States
 import net.tecdroid.vision.limelight.systems.LimeLightChoice
@@ -40,6 +44,7 @@ class RobotContainer {
 
     private val xLimelightToAprilTagSetPoint = 0.215
     private val yLimelightToAprilTagSetPoint = 0.045
+    private val visionStdDev = VecBuilder.fill(.5, .5, .2)
 
     private var autoLevelSelectorMode = true
 
@@ -166,14 +171,27 @@ class RobotContainer {
 
     fun robotPeriodic() {
         advantageScopeLogs()
+
         try {
-            limelightController.updatePoseLeftLimelight(drive.poseEstimator)
+            if (limelightController.hasTarget(LimeLightChoice.Left)) {
+                drive.addVisionMeasurement(
+                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).pose,
+                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).timestampSeconds,
+                    visionStdDev
+                )
+            }
         } catch (e: Exception) {
             println("left limelight pose update error")
         }
 
         try {
-            limelightController.updatePoseRightLimelight(drive.poseEstimator)
+            if (limelightController.hasTarget(LimeLightChoice.Right)) {
+                drive.addVisionMeasurement(
+                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).pose,
+                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).timestampSeconds,
+                    visionStdDev
+                )
+            }
         } catch (e: Exception) {
             println("Right limelight update error")
         }

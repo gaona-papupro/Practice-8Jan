@@ -45,6 +45,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -216,6 +217,8 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
 
+    SmartDashboard.putNumber("Raw Gyro Deg", rawGyroRotation.getDegrees() % 360);
+
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
   }
@@ -234,6 +237,9 @@ public class Drive extends SubsystemBase {
     // Log unoptimized setpoints and setpoint speeds
     Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
     Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
+    SmartDashboard.putNumber("Commanded Vx", discreteSpeeds.vxMetersPerSecond);
+    SmartDashboard.putNumber("Commanded Vy", discreteSpeeds.vyMetersPerSecond);
+    SmartDashboard.putNumber("Commanded Vw", discreteSpeeds.omegaRadiansPerSecond);
 
     // Send setpoints to modules
     for (int i = 0; i < 4; i++) {
