@@ -2,17 +2,17 @@ package net.tecdroid.systems
 
 import edu.wpi.first.math.MathUtil
 import edu.wpi.first.math.controller.PIDController
+import edu.wpi.first.math.geometry.Rotation2d
 import edu.wpi.first.math.kinematics.ChassisSpeeds
 import edu.wpi.first.units.Units
-import edu.wpi.first.units.Units.Volts
+import edu.wpi.first.units.Units.MetersPerSecond
 import edu.wpi.first.units.measure.Angle
-import edu.wpi.first.units.measure.Distance
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab
 import edu.wpi.first.wpilibj2.command.Command
 import edu.wpi.first.wpilibj2.command.Commands
+import net.tecdroid.subsystems.drivetrain.Drive
+import net.tecdroid.constants.Constants
 import net.tecdroid.input.CompliantXboxController
-import net.tecdroid.subsystems.drivetrain.SwerveDrive
 import net.tecdroid.util.ControlGains
 import net.tecdroid.util.degrees
 import net.tecdroid.util.meters
@@ -24,7 +24,7 @@ enum class LockPositions {
     Proccesor
 }
 
-class SwerveRotationLockSystem (private val swerve: SwerveDrive, private val controller: CompliantXboxController){
+class SwerveRotationLockSystem (private val swerve: Drive, private val controller: CompliantXboxController){
     private val thetaGains = ControlGains(0.005, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     private val thetaPIDController = PIDController(thetaGains.p, thetaGains.i, thetaGains.d)
 
@@ -36,7 +36,7 @@ class SwerveRotationLockSystem (private val swerve: SwerveDrive, private val con
     }
 
     private fun getLimitedYaw(): Double {
-        var limitedYaw: Double = swerve.heading.`in`(Units.Degrees) % 360
+        var limitedYaw: Double = swerve.rotation.degrees % 360
         if (limitedYaw < 0) {
             limitedYaw += 360.0
         }
@@ -66,8 +66,8 @@ class SwerveRotationLockSystem (private val swerve: SwerveDrive, private val con
         val vx = MathUtil.applyDeadband(controller.leftY, 0.05) * 0.85
         val vy = MathUtil.applyDeadband(controller.leftX, 0.05) * 0.85
 
-        val targetXVelocity = swerve.maxLinearVelocity * vx
-        val targetYVelocity = swerve.maxLinearVelocity * vy
+        val targetXVelocity = MetersPerSecond.of(swerve.maxLinearSpeedMetersPerSec) * vx
+        val targetYVelocity = MetersPerSecond.of(swerve.maxLinearSpeedMetersPerSec) * vy
 
         // PID theta velocity
 
@@ -78,8 +78,10 @@ class SwerveRotationLockSystem (private val swerve: SwerveDrive, private val con
         }
         val wFactor = clamp(1.0, -1.0, thetaPIDController.calculate(getLimitedYaw(), targetAngle.`in`(Units.Degrees)))
 
-        val targetWVelocity = Units.DegreesPerSecond.of(Math.toDegrees(swerve.maxSpeeds.omegaRadiansPerSecond.times(0.75)) * wFactor)
+        val targetWVelocity = Units.DegreesPerSecond.of(Math.toDegrees(swerve.maxAngularSpeedRadPerSec.times(0.75)) * wFactor)
 
-        swerve.driveFieldOriented(ChassisSpeeds(targetXVelocity, targetYVelocity, targetWVelocity))
+        swerve.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(
+            targetXVelocity, targetYVelocity, targetWVelocity,
+            if (Constants.isFlipped.invoke()) swerve.rotation.plus(Rotation2d(Math.PI)) else swerve.rotation))
     }, swerve)
 }

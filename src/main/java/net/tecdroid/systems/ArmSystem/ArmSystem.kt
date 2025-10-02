@@ -257,6 +257,10 @@ class ArmSystem(val stateMachine: StateMachine, val limeLightIsAtSetPoint: (Doub
         )
     }
 
+    fun editJointPose(pose: ArmPose, angleDelta: Angle) : ArmPose {
+        return pose.copy(elevatorJointPosition = pose.elevatorJointPosition.plus(angleDelta))
+    }
+
     override fun initSendable(builder: SendableBuilder) {
         with(builder) {
             addDoubleProperty("Elevator Error (Rotations)", { elevator.getPositionError().`in`(Rotations) }) {}

@@ -116,7 +116,7 @@ public class LimelightController {
 
         angleDictionaryValues();
         limelightConfiguration();
-        //limelightsStream();
+        limelightsStream();
     }
 
     private static double clamp(double max, double min, double v) {
@@ -275,6 +275,11 @@ public class LimelightController {
         }, requiredSubsystem);
     }
 
+    public LimelightHelpers.PoseEstimate getRobotPoseEstimate(LimeLightChoice choice) {
+        LimelightAprilTagDetector limelight = (choice == LimeLightChoice.Right) ? rightLimelight : leftLimelight;
+        return limelight.getRobotPoseEstimateWpiBlueMT1();
+    }
+
     public void updatePoseLeftLimelight(SwerveDrivePoseEstimator poseEstimator) {
         boolean doRejectUpdate = false;
         LimelightHelpers.PoseEstimate mt1 = leftLimelight.getRobotPoseEstimateWpiBlueMT1();
@@ -298,7 +303,7 @@ public class LimelightController {
 
         if(!doRejectUpdate)
         {
-            poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(.3,.3,5.0));
+            poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.0, 0.0, 0.0));
             poseEstimator.addVisionMeasurement(
                     mt1.pose,
                     mt1.timestampSeconds);
@@ -328,7 +333,7 @@ public class LimelightController {
 
         if(!doRejectUpdate)
         {
-            poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(.5,.5,10.0));
+            poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.0, 0.0, 0.0));
             poseEstimator.addVisionMeasurement(
                     mt1.pose,
                     mt1.timestampSeconds);
@@ -357,8 +362,14 @@ public class LimelightController {
     public void shuffleboardData() {
         ShuffleboardTab tab = Shuffleboard.getTab("Limelight");
 
-        tab.addDoubleArray("rPosition", () -> new double[]{ getTargetPositionInCameraSpace(LimeLightChoice.Right).getX(), getTargetPositionInCameraSpace(LimeLightChoice.Right).getY(), getTargetPositionInCameraSpace(LimeLightChoice.Right).getZ()});
-        tab.addDoubleArray("lPosition", () -> new double[]{ getTargetPositionInCameraSpace(LimeLightChoice.Left).getX(), getTargetPositionInCameraSpace(LimeLightChoice.Left).getY(), getTargetPositionInCameraSpace(LimeLightChoice.Left).getZ()});
+        tab.addDoubleArray("rPosition", () -> new double[]{ rightLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getX(),
+                rightLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getY(),
+                rightLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getRotation().getDegrees()});
+
+        tab.addDoubleArray("lPosition", () -> new double[]{ leftLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getX(),
+                leftLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getY(),
+                leftLimelight.getRobotPoseEstimateWpiBlueMT1().pose.getRotation().getDegrees()});
+
         tab.addDouble("RobotYaw", this::getLimitedYaw);
         tab.addInteger("Yaw Objective", rightLimelight::getTargetId);
     }

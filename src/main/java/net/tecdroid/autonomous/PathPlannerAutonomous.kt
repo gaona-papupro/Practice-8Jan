@@ -1,6 +1,5 @@
 package net.tecdroid.autonomous
 
-import com.pathplanner.lib.auto.AutoBuilder
 import com.pathplanner.lib.auto.NamedCommands
 import com.pathplanner.lib.commands.PathPlannerAuto
 import com.pathplanner.lib.config.PIDConstants
@@ -8,24 +7,23 @@ import com.pathplanner.lib.config.RobotConfig
 import com.pathplanner.lib.controllers.PPHolonomicDriveController
 import com.pathplanner.lib.path.PathPlannerPath
 import edu.wpi.first.wpilibj.DriverStation
-import edu.wpi.first.wpilibj.DriverStation.Alliance
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard
 import edu.wpi.first.wpilibj2.command.Command
 import edu.wpi.first.wpilibj2.command.Commands
 import edu.wpi.first.wpilibj2.command.ParallelCommandGroup
-import net.tecdroid.subsystems.drivetrain.SwerveDrive
+import net.tecdroid.subsystems.drivetrain.Drive
 import net.tecdroid.systems.ArmSystem.ArmOrders
 import net.tecdroid.systems.ArmSystem.ArmPoses
 import net.tecdroid.systems.ArmSystem.ArmSystem
 import net.tecdroid.util.seconds
 import net.tecdroid.vision.limelight.systems.LimeLightChoice
 import net.tecdroid.vision.limelight.systems.LimelightController
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser
 import java.io.IOException
 
-class PathPlannerAutonomous(val drive: SwerveDrive, private val limelightController: LimelightController, private val armSystem: ArmSystem) {
-    private val autoChooser = SendableChooser<Command>()
+class PathPlannerAutonomous(val drive: Drive, private val limelightController: LimelightController, private val armSystem: ArmSystem) {
+    private val autoChooser = LoggedDashboardChooser<Command>("Auto Choices", drive.autoChooser)
 
     private val robotConfig: RobotConfig = try {
         RobotConfig.fromGUISettings()
@@ -135,7 +133,7 @@ class PathPlannerAutonomous(val drive: SwerveDrive, private val limelightControl
 
     private fun autoChooserOptions() {
         val tab = Shuffleboard.getTab("Driver Tab")
-        autoChooser.setDefaultOption("None", Commands.none())
+        autoChooser.addDefaultOption("None", Commands.none())
 
         autoChooser.addOption("Straight Forward", resetPoseAndGetPathFollowingCommand("Straightforward"))
 
@@ -162,32 +160,32 @@ class PathPlannerAutonomous(val drive: SwerveDrive, private val limelightControl
                 armSystem.disableIntake(),
                 armSystem.setPoseAutoCommand(ArmPoses.L2.pose, ArmOrders.JEW.order)))
 
-        tab.add("Autonomous Chooser", autoChooser)
-        SmartDashboard.putData("Autonomous Chooser", autoChooser)
+        tab.add("Autonomous Chooser", autoChooser.sendableChooser)
+        SmartDashboard.putData("Autonomous Chooser", autoChooser.sendableChooser)
     }
 
     init {
         var alliance = DriverStation.getAlliance()
-        
-        AutoBuilder.configure(
-            drive::pose::get,
-            drive::pose::set,
-            drive::speeds::get,
-            { speeds, _ ->
-                drive.driveRobotOriented(speeds)
-            },
-            driveController,
-            robotConfig,
-            { if (alliance.isPresent) { alliance.get() == Alliance.Red } else false },
-            drive
-        )
+
+        // Instead I used AutoBuilder inside Drive. Should see why configuring it here gives me an error,
+        // I suspect is due to Java - Kotlin interaction failing.
+//        AutoBuilder.configure(
+//            drive.pose,
+//            drive.pose,
+//            drive.chassisSpeeds,
+//            {speeds: ChassisSpeeds -> drive.runVelocity(speeds)},
+//            driveController,
+//            robotConfig,
+//            { if (alliance.isPresent) { alliance.get() == Alliance.Red } else false },
+//            drive
+//        )
 
         namedCommandsInit()
         autoChooserOptions()
     }
 
     val selectedAutonomousRoutine: Command
-        get() = autoChooser.selected
+        get() = if (autoChooser.get() != null) autoChooser.get() else Commands.none()
 
     fun getPath(name: String): PathPlannerPath = try {
         PathPlannerPath.fromPathFile(name)
@@ -197,8 +195,8 @@ class PathPlannerAutonomous(val drive: SwerveDrive, private val limelightControl
     }
 
 
-    fun getPathFollowingCommand(name: String): Command = AutoBuilder.followPath(getPath(name))
-    fun getPathFollowingCommand(path: PathPlannerPath): Command = AutoBuilder.followPath(path)
+    fun getPathFollowingCommand(name: String): Command = drive.followTrajectory(getPath(name))
+    fun getPathFollowingCommand(path: PathPlannerPath): Command = drive.followTrajectory(path)
 
     fun resetPoseAndGetPathFollowingCommand(name: String) : Command {
         val path = getPath(name)

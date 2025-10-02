@@ -1,48 +1,50 @@
 package net.tecdroid.core
 
-import edu.wpi.first.math.MathUtil
+import edu.wpi.first.math.VecBuilder
+import edu.wpi.first.math.Vector
 import edu.wpi.first.math.geometry.Pose2d
-import edu.wpi.first.math.kinematics.ChassisSpeeds
+import edu.wpi.first.math.geometry.Rotation2d
 import edu.wpi.first.networktables.NetworkTableInstance
 import edu.wpi.first.networktables.StructPublisher
-import edu.wpi.first.units.Units.*
+import edu.wpi.first.units.measure.Time
 import edu.wpi.first.wpilibj2.command.Command
 import edu.wpi.first.wpilibj2.command.Commands
-import edu.wpi.first.wpilibj2.command.button.Trigger
+import net.tecdroid.commands.DriveCommands
+import net.tecdroid.constants.SwerveTunerConstants
+import net.tecdroid.subsystems.drivetrain.Drive
+import net.tecdroid.subsystems.drivetrain.GyroIO
+import net.tecdroid.subsystems.drivetrain.GyroIOPigeon2
+import net.tecdroid.subsystems.drivetrain.ModuleIO
+import net.tecdroid.subsystems.drivetrain.ModuleIOSim
+import net.tecdroid.subsystems.drivetrain.ModuleIOTalonFX
 import net.tecdroid.autonomous.PathPlannerAutonomous
-import net.tecdroid.constants.GenericConstants.driverControllerId
+import net.tecdroid.constants.Constants
+import net.tecdroid.constants.Constants.driverControllerId
 import net.tecdroid.input.CompliantXboxController
-import net.tecdroid.subsystems.drivetrain.SwerveDrive
-import net.tecdroid.subsystems.drivetrain.swerveDriveConfiguration
-import net.tecdroid.systems.ArmSystem.ArmOrders
-import net.tecdroid.systems.ArmSystem.ArmPoses
 import net.tecdroid.systems.ArmSystem.ArmSystem
 import net.tecdroid.systems.ArmSystem.ReefAppListener
 import net.tecdroid.systems.SwerveRotationLockSystem
-import net.tecdroid.util.NumericId
-import net.tecdroid.util.degrees
+import net.tecdroid.util.seconds
 import net.tecdroid.util.stateMachine.StateMachine
 import net.tecdroid.util.stateMachine.States
 import net.tecdroid.vision.limelight.systems.LimeLightChoice
 import net.tecdroid.vision.limelight.systems.LimelightController
+import java.util.function.DoubleSupplier
 
 
 class RobotContainer {
     private val controller = CompliantXboxController(driverControllerId)
-    private val swerve = SwerveDrive(swerveDriveConfiguration)
+    private var drive: Drive
     private val stateMachine = StateMachine(States.CoralState)
     private val arm = ArmSystem(stateMachine, ::limeLightIsAtSetPoint)
-    private val limelightController = LimelightController(
-        swerve,
-        { chassisSpeeds -> swerve.driveRobotOriented(chassisSpeeds) },
-        { swerve.heading.`in`(Degrees) }, swerve.maxSpeeds.times(0.75)
-    )
-    private val pathPlannerAutonomous = PathPlannerAutonomous(swerve, limelightController, arm)
-    private val swerveRotationLockSystem = SwerveRotationLockSystem(swerve, controller)
+    private val limelightController: LimelightController
+    private val pathPlannerAutonomous: PathPlannerAutonomous
+    private val swerveRotationLockSystem: SwerveRotationLockSystem
     private val reefAppListener = ReefAppListener()
 
     private val xLimelightToAprilTagSetPoint = 0.215
     private val yLimelightToAprilTagSetPoint = 0.045
+    private val visionStdDev = VecBuilder.fill(.5, .5, .2)
 
     private var autoLevelSelectorMode = true
 
@@ -51,37 +53,75 @@ class RobotContainer {
         .getStructTopic("RobotPose", Pose2d.struct).publish()
 
     init {
-        limelightController.shuffleboardData()
-        swerve.heading = 0.0.degrees
+        when (Constants.currentMode) {
+            Constants.Mode.REAL ->         // Real robot, instantiate hardware IO implementations
+                drive =
+                    Drive(
+                        GyroIOPigeon2(),
+                        ModuleIOTalonFX(SwerveTunerConstants.FrontLeft),
+                        ModuleIOTalonFX(SwerveTunerConstants.FrontRight),
+                        ModuleIOTalonFX(SwerveTunerConstants.BackLeft),
+                        ModuleIOTalonFX(SwerveTunerConstants.BackRight)
+                    )
 
+            Constants.Mode.SIM ->         // Sim robot, instantiate physics sim IO implementations
+                drive =
+                    Drive(
+                        object : GyroIO {},
+                        ModuleIOSim(SwerveTunerConstants.FrontLeft),
+                        ModuleIOSim(SwerveTunerConstants.FrontRight),
+                        ModuleIOSim(SwerveTunerConstants.BackLeft),
+                        ModuleIOSim(SwerveTunerConstants.BackRight)
+                    )
+
+            else ->         // Replayed robot, disable IO implementations
+                drive =
+                    Drive(
+                        object : GyroIO {},
+                        object : ModuleIO {},
+                        object : ModuleIO {},
+                        object : ModuleIO {},
+                        object : ModuleIO {})
+        }
+
+        limelightController = LimelightController(
+            drive,
+            { chassisSpeeds -> drive.runVelocity(chassisSpeeds) },
+            { drive.rotation.degrees }, drive.maxSwerveSpeeds.times(0.75))
+        limelightController.shuffleboardData()
         arm.publishShuffleBoardData()
         arm.assignCommands(controller)
+
+        swerveRotationLockSystem = SwerveRotationLockSystem(drive, controller)
+        pathPlannerAutonomous = PathPlannerAutonomous(drive, limelightController, arm)
     }
 
 
     fun autonomousInit() {
-        swerve.removeDefaultCommand()
+        //swerve.removeDefaultCommand()
     }
 
     fun teleopInit() {
-        controller.start().onTrue(swerve.zeroHeadingCommand())
+        // Reset gyro to 0° when Start button is pressed
+        controller.start().onTrue(
+                Commands.runOnce(
+                    Runnable {
+                        drive.setPose(
+                            Pose2d(drive.getPose().getTranslation(), Rotation2d())
+                        )
+                    },
+                    drive
+                )
+            )
 
         limelightController.setFilterIds(arrayOf(21, 20, 19, 18, 17, 22, 10, 11, 6, 7, 8, 9))
 
-        swerve.defaultCommand = Commands.run(
-            {
-                val vx = MathUtil.applyDeadband(controller.leftY, 0.05) * 0.85
-                val vy = MathUtil.applyDeadband(controller.leftX, 0.05) * 0.85
-                val vw = MathUtil.applyDeadband(controller.rightX, 0.05) * 0.85
-
-                val targetXVelocity = swerve.maxLinearVelocity * vx
-                val targetYVelocity = swerve.maxLinearVelocity * vy
-                val targetAngularVelocity = swerve.maxAngularVelocity * vw
-
-                swerve.driveFieldOriented(ChassisSpeeds(targetXVelocity, targetYVelocity, targetAngularVelocity))
-            },
-            swerve
-        )
+        // Default command, normal field-relative drive
+        drive.defaultCommand = DriveCommands.joystickDrive(
+            drive,
+            DoubleSupplier { -controller.getLeftY() * 0.8 },
+            DoubleSupplier { -controller.getLeftX() * 0.8 },
+            DoubleSupplier { controller.getRightX() * 0.8 })
 
         controller.rightTrigger().whileTrue(limelightController.alignRobotAllAxis(LimeLightChoice.Right, 0.215, 0.035))
         controller.leftTrigger().whileTrue(limelightController.alignRobotAllAxis(LimeLightChoice.Left, 0.215, -0.035))
@@ -113,7 +153,7 @@ class RobotContainer {
     }
 
     private fun advantageScopeLogs() {
-        robotPosePublisher.set(swerve.pose)
+        robotPosePublisher.set(drive.pose)
     }
 
     fun limeLightIsAtSetPoint(xToleranceRange: Double = 0.0): Boolean {
@@ -131,17 +171,30 @@ class RobotContainer {
 
     fun robotPeriodic() {
         advantageScopeLogs()
-        try {
-            limelightController.updatePoseLeftLimelight(swerve.poseEstimator)
-        } catch (e: Exception) {
-            System.out.println("left limelight pose update error")
-        }
 
-        try {
-            limelightController.updatePoseRightLimelight(swerve.poseEstimator)
-        } catch (e: Exception) {
-            System.out.println("Right limelight update error")
-        }
+//        try {
+//            if (limelightController.hasTarget(LimeLightChoice.Left)) {
+//                drive.addVisionMeasurement(
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).pose,
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).timestampSeconds,
+//                    visionStdDev
+//                )
+//            }
+//        } catch (e: Exception) {
+//            println("left limelight pose update error")
+//        }
+//
+//        try {
+//            if (limelightController.hasTarget(LimeLightChoice.Right)) {
+//                drive.addVisionMeasurement(
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).pose,
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).timestampSeconds,
+//                    visionStdDev
+//                )
+//            }
+//        } catch (e: Exception) {
+//            println("Right limelight update error")
+//        }
 
     }
 
