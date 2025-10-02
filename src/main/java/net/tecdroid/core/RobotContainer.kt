@@ -172,29 +172,29 @@ class RobotContainer {
     fun robotPeriodic() {
         advantageScopeLogs()
 
-        try {
-            if (limelightController.hasTarget(LimeLightChoice.Left)) {
-                drive.addVisionMeasurement(
-                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).pose,
-                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).timestampSeconds,
-                    visionStdDev
-                )
-            }
-        } catch (e: Exception) {
-            println("left limelight pose update error")
-        }
-
-        try {
-            if (limelightController.hasTarget(LimeLightChoice.Right)) {
-                drive.addVisionMeasurement(
-                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).pose,
-                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).timestampSeconds,
-                    visionStdDev
-                )
-            }
-        } catch (e: Exception) {
-            println("Right limelight update error")
-        }
+//        try {
+//            if (limelightController.hasTarget(LimeLightChoice.Left)) {
+//                drive.addVisionMeasurement(
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).pose,
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Left).timestampSeconds,
+//                    visionStdDev
+//                )
+//            }
+//        } catch (e: Exception) {
+//            println("left limelight pose update error")
+//        }
+//
+//        try {
+//            if (limelightController.hasTarget(LimeLightChoice.Right)) {
+//                drive.addVisionMeasurement(
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).pose,
+//                    limelightController.getRobotPoseEstimate(LimeLightChoice.Right).timestampSeconds,
+//                    visionStdDev
+//                )
+//            }
+//        } catch (e: Exception) {
+//            println("Right limelight update error")
+//        }
 
     }
 
