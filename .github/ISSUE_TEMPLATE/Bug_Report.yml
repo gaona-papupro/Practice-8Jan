@@ -1,0 +1,73 @@
+name: Bug Report
+description: File a bug report.
+title: "[Subsystem]_[Feature not working]: "
+labels: ["bug", "help wanted"]
+projects: ["Reefscape-Off-Season", "DECODE-alphabot-solverslib"]
+assignees:
+  - MelvinM08
+type: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug.
+      description: Please be clear and concise. You might add pictures of Shuffleboard values or log files.
+      placeholder: e.g. What subsystems are involved? What exactly is the bug?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce-behavior
+    attributes:
+      label: How to Reproduce the Bug?
+      description: A step-by-step on how to recreate the bug.
+      placeholder: |
+        1. Enable Robot
+        2. Reset Heading
+        3. Move Rotation Joystick to the Right
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: What Did You Expect to Happen?
+      description: Clear and concise description of what you expected.
+      placeholder: I expected the robot to rotate in place clockwise.
+    validations:
+      required: true
+  - type: textarea
+    id: probable-cause
+    attributes:
+      label: Probable Cause (If Applicable)
+      description: Copy paste any lines or methods you think might be causing the problem and why. This would automatically convert to code.
+      placeholder: |
+        fun getChassisSpeeds(leftJoystick: Pair<Double, Double>, rightJoystick: Pair<Double, Double>) {
+          ...
+        }
+        The above function might be causing the problem because: ...
+        
+        fun rotateInPlace(speeds: ChassisSpeeds) {
+          ...
+        }
+        The above function might be causing the problem because: ...
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: branch
+    attributes:
+      label: Branch Where the Bug Occured.
+      placeholder: subsystems/climber
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context 
+      description: Any other piece of information that might be relevant to the bug.
+      placeholder: The controller we used had a bit of drift. Might be useful to test how bad is it.
+    validations:
+      required: false
